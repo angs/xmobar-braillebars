@@ -1,3 +1,7 @@
+{- Copyright : Altti Tammi
+ - License   : BSD3 (See LICENSE)
+ -}
+
 {-# LANGUAGE BangPatterns #-}
 import Control.Monad (liftM, forever)
 import Control.Concurrent (threadDelay)
