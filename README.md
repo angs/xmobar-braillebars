@@ -1,0 +1,2 @@
+xmobar-multicpu-braille
+=======================
