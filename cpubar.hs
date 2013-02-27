@@ -37,10 +37,10 @@ main = do
     putStr "CPU"
     putChar $ ['\10248','\10264','\10296','\10424']!!(ll-1)
     putStr $ concat
-		  [ "<fc=", low, ">", lowstr, "</fc>"
-			, "<fc=", medium, ">", medstr, "</fc>"
-			, "<fc=", high, ">", histr, "</fc>"
-			]
+      [ "<fc=", low, ">", lowstr, "</fc>"
+      , "<fc=", medium, ">", medstr, "</fc>"
+      , "<fc=", high, ">", histr, "</fc>"
+      ]
     putChar $ ['\10241','\10243','\10247','\10311']!!(ll-1)
     putChar '\n'
     hFlush stdout

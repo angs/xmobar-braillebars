@@ -36,15 +36,15 @@ main = do
     let (lowstr, temp) = splitAt charsPerMagnitude netstring
     let (medstr, histr) = splitAt charsPerMagnitude temp
     putStrLn $ concat 
-			[ interface ++ " "
-			, "<fc=#ffffff>B</fc>"
-			, "<fc=", low, ">", lowstr, "</fc>"
-			, "<fc=#ffffff>K</fc>"
-			, "<fc=", medium, ">", medstr, "</fc>"
-			, "<fc=#ffffff>M</fc>"
-			, "<fc=", high, ">", histr, "</fc>"
-			, "<fc=#ffffff>G</fc>"
-			]
+      [ interface ++ " "
+      , "<fc=#ffffff>B</fc>"
+      , "<fc=", low, ">", lowstr, "</fc>"
+      , "<fc=#ffffff>K</fc>"
+      , "<fc=", medium, ">", medstr, "</fc>"
+      , "<fc=#ffffff>M</fc>"
+      , "<fc=", high, ">", histr, "</fc>"
+      , "<fc=#ffffff>G</fc>"
+      ]
     hFlush stdout
 
 usageDots :: Integer -> Int
@@ -52,7 +52,7 @@ usageDots n = floor $ log (fromIntegral $ max 1 n) * (fromIntegral $ 2*charsPerM
 
 netData :: String -> IO (Integer, Integer)
 netData interface = do
-	rx <- readFile $ "/sys/class/net/"++interface++"/statistics/rx_bytes"
-	tx <- readFile $ "/sys/class/net/"++interface++"/statistics/tx_bytes"
-	return (read rx, read tx)
+  rx <- readFile $ "/sys/class/net/"++interface++"/statistics/rx_bytes"
+  tx <- readFile $ "/sys/class/net/"++interface++"/statistics/tx_bytes"
+  return (read rx, read tx)
 
