@@ -3,15 +3,15 @@
  -}
 
 {-# LANGUAGE BangPatterns #-}
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import Control.Concurrent (threadDelay)
 import System.IO
 import Data.IORef
 import BrailleBar
+import System.Environment
 
 charsPerMagnitude = 4
 meterlength = 3*2*charsPerMagnitude
-interface = "eth0"
 
 low="#13ad2f"
 medium="#feb500"
@@ -19,6 +19,9 @@ high="#f5010a"
 delay=1000000
 
 main = do
+  a <- getArgs
+  when (null a) $ error "Usage: netbar interface\ne.g. netbar eth0"
+  let interface = head a
   mapM_ (flip hSetBuffering NoBuffering) [stdin, stdout]
   stat <- newIORef ((0,0) :: (Integer, Integer))
   !oldstat <- netData interface
