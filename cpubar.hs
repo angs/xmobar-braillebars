@@ -10,38 +10,44 @@ import System.IO
 import Data.IORef
 import BrailleBar
 
-meterchars = 16
-meterdots = 2*meterchars
-
-low="#13ad2f"
-medium="#feb500"
-high="#f5010a"
-delay=1000000
+meterChars   = 16
+meterDots    = 2*meterChars
+lowLength    = div meterChars 2
+mediumLength = div meterChars 4
+lowColor     = "#13ad2f"
+mediumColor  = "#feb500"
+highColor    = "#f5010a"
+milliSecond  = 1000
+delay        = 1000*milliSecond
 
 main = do
   mapM_ (flip hSetBuffering NoBuffering) [stdin, stdout]
   stat <- newIORef ([[]] :: [[Int]])
   !oldstat <- cpuData
   writeIORef stat oldstat
+  let numCPUs    = length oldstat
+  let numBars    = div (numCPUs + 3) 4
+  let delimiters = map (\a -> [a]) $ if numCPUs <= 4
+      then ["\10248\10241","\10264\10243","\10296\10247","\10424\10311"]!!(numCPUs - 1) 
+      else '\10424' 
+           : (replicate (max 0 (numBars - 2)) '\10495') 
+           ++ (["\10495\10311","\10319\10241","\10335\10243","\10367\10247"]!!(mod numCPUs 4))
   forever $ do
     threadDelay delay
     newstat <- cpuData
     oldstat <- readIORef stat
     let !load = zipWith coreLoad oldstat newstat
     writeIORef stat newstat
-    let ll = length load
-    let load' = map (numDots meterdots) $ take 4 $ load ++ (replicate (4 - ll) 0.0)
-    let cpustring = brailleBar (meterdots) load'
-    let (lowstr, temp) = splitAt (div meterchars 2) cpustring
-    let (medstr, histr) = splitAt (div meterchars 4) temp
+    let bars = map (brailleBar meterDots) $ chunksOf4 $ map (numDots meterDots) $ load
+    let coloredBars = flip map bars $ (\bar -> 
+                        let (lowstr, temp) = splitAt lowLength bar in
+                        let (medstr, histr) = splitAt mediumLength temp in concat 
+                        [ "<fc=", lowColor, ">", lowstr, "</fc>"
+                        , "<fc=", mediumColor, ">", medstr, "</fc>"
+                        , "<fc=", highColor, ">", histr, "</fc>"
+                        ])
     putStr "CPU"
-    putChar $ ['\10248','\10264','\10296','\10424']!!(ll-1)
-    putStr $ concat
-      [ "<fc=", low, ">", lowstr, "</fc>"
-      , "<fc=", medium, ">", medstr, "</fc>"
-      , "<fc=", high, ">", histr, "</fc>"
-      ]
-    putChar $ ['\10241','\10243','\10247','\10311']!!(ll-1)
+    mapM_ putStr $ interleave delimiters coloredBars
     putChar '\n'
     hFlush stdout
 
@@ -51,8 +57,16 @@ cpuData = do
   return $ map (map read . take 4 . tail . words) . takeWhile ("cpu" `isPrefixOf`) . tail . lines $ f
 
 coreLoad :: (Integral a, Fractional b) => [a] -> [a] -> b
-coreLoad (a1:a2:a3:a4:_) (b1:b2:b3:b4:_) = (fromIntegral k) / (fromIntegral $ k + b4 - a4)
-  where k = b1+b2+b3-a1-a2-a3
+coreLoad (a_user:a_nice:a_system:a_idle:_) (b_user:b_nice:b_system:b_idle:_) = (fromIntegral busy) / (fromIntegral $ busy + b_idle - a_idle)
+  where busy = b_user + b_nice + b_system - a_user - a_nice - a_system
 
-numDots totaldots i = floor $ i*(fromIntegral $ totaldots)+0.5
+numDots :: Int -> Double -> Int
+numDots totaldots i = round $ i*(fromIntegral $ totaldots)
 
+chunksOf4 :: [Int] -> [[Int]]
+chunksOf4 (a:b:c:d:ls) = [a,b,c,d] : chunksOf4 ls
+chunksOf4 [] = []
+chunksOf4 ls = [ls ++ (replicate (4 - (length ls)) 0)]
+
+interleave [] _ = []
+interleave (a:as) b = a : interleave b as
