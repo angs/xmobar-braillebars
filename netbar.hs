@@ -6,20 +6,17 @@
 import Control.Monad (forever, when)
 import Control.Concurrent (threadDelay)
 import System.IO
+import Common
 import Data.IORef
 import BrailleBar
 import System.Directory (doesDirectoryExist)
 import System.Environment
+import qualified Data.Sequence as S
 
 charsPerMagnitude = 4
+
+divByWindowSeconds= second / (fromIntegral $ windowSize * delay)
 meterDots         = 3*2*charsPerMagnitude
-lowColor          = "#13ad2f"
-mediumColor       = "#feb500"
-highColor         = "#f5010a"
-milliSecond       = 1000
-delay             = 1000*milliSecond
-second            = 1000000.0
-delayMultiplier   = second / (fromIntegral delay)
 
 main = do
   a <- getArgs
@@ -28,37 +25,38 @@ main = do
   interfaceExists <- doesDirectoryExist $ "/sys/class/net/" ++ interface
   when (not interfaceExists) $ error $ "Network interface not found: " ++ interface
   mapM_ (flip hSetBuffering NoBuffering) [stdin, stdout]
-  stat <- newIORef ((0,0) :: (Integer, Integer))
-  !oldstat <- netData interface
-  writeIORef stat oldstat
+  stat <- newIORef $ S.replicate windowSize ((0,0) :: (Integer, Integer))
   forever $ do
     threadDelay delay
     newstats@(rx_new, tx_new) <- netData interface
-    (rx_old, tx_old)          <- readIORef stat
-    writeIORef stat newstats
-    let !rx = usageDots . (*delayMultiplier) . fromIntegral $ rx_new - rx_old
-    let !tx = usageDots . (*delayMultiplier) . fromIntegral $ tx_new - tx_old
-    let netstring       = brailleBar meterDots [0, rx, tx, 0]
+    (rx_old, tx_old)          <- (`S.index` 0) <$> readIORef stat
+    modifyIORef' stat (S.drop 1 . (S.|> newstats))
+    let !rx = usageDots . (*divByWindowSeconds) . fromIntegral $ rx_new - rx_old
+    let !tx = usageDots . (*divByWindowSeconds) . fromIntegral $ tx_new - tx_old
+    let netstring       = intToBraille meterDots [0, rx, tx, 0]
     let (lowstr, temp)  = splitAt charsPerMagnitude netstring
     let (medstr, histr) = splitAt charsPerMagnitude temp
     mapM_ putStr 
       [ interface, " "
       , "<fc=#ffffff>B</fc>"
-      , "<fc=", lowColor, ">", lowstr, "</fc>"
-      , "<fc=#ffffff>K</fc>"
-      , "<fc=", mediumColor, ">", medstr, "</fc>"
-      , "<fc=#ffffff>M</fc>"
-      , "<fc=", highColor, ">", histr, "</fc>"
-      , "<fc=#ffffff>G</fc>\n"
+      , "<fc=", lowColor, ">"
+      , lowstr
+      , "</fc>", "<fc=#ffffff>K</fc>"
+      , "<fc=", mediumColor, ">"
+      , medstr
+      , "</fc>", "<fc=#ffffff>M</fc>"
+      , "<fc=", highColor, ">"
+      , histr
+      , "</fc>", "<fc=#ffffff>G</fc>\n"
       ]
     hFlush stdout
 
 usageDots :: Double -> Int
-usageDots n = floor $ log (n + 1) * (fromIntegral $ 2*charsPerMagnitude) / log 1024
+usageDots n = round $ log (n + 1) * (fromIntegral $ 2*charsPerMagnitude) / log 1000
 
 netData :: String -> IO (Integer, Integer)
 netData interface = do
   rx <- readFile $ "/sys/class/net/"++interface++"/statistics/rx_bytes"
   tx <- readFile $ "/sys/class/net/"++interface++"/statistics/tx_bytes"
-  return (read rx, read tx)
+  return (read rx * 8, read tx * 8)
 
